@@ -1,6 +1,7 @@
 import requests
 import xmltodict
 import pandas as pd
+import datetime as dt
 
 from utils.database import  read_dataframe_from_postgres
 # from utils.database import read_dataframe_from_postgres
@@ -44,9 +45,10 @@ def process_stop_direction(stop, stop_list, direction):
         ]
 
 
-def fetch_arrivals_dataframe(route_id):
+def fetch_predictions_dataframe(route_id):
 
     all_pred = fetch_predictions_by_route(5)
+    current_time = dt.datetime.now()
 
     stop_list = []
     for pred in all_pred:
@@ -57,8 +59,16 @@ def fetch_arrivals_dataframe(route_id):
                         process_stop_direction(stop, stop_list, direction)
                 else:
                     process_stop_direction(stop, stop_list, stop['direction'])
-    return pd.DataFrame(stop_list)
+    df = pd.DataFrame(stop_list)
+    df['fetch_time'] = current_time
+    return df
 
+def diff_predictions(pred_pre, pred_post):
+    merged=pred_pre.merge(pred_post, how='left', on=['trip_id', 'stop_tag'])
+    arrivals = merged[pd.isnull(merged['arrival_seconds_y'])]
+    arrivals = arrivals[[x for x in arrivals.columns if x [-2:] != '_y']]
+    arrivals.columns = [x[:-2] for x in arrivals.columns]
+    return arrivals
 
 if __name__ == '__main__':
     # print(STOPS_BY_ROUTE['5'])
